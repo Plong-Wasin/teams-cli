@@ -19,6 +19,7 @@ Commands:
   teams [--json]
   channels [team] [--json]
   channel [channel] [--team team] [--json]
+  search <query> [--size N] [--json]
   api <GET|POST|PUT|PATCH|DELETE> <path> [key=value ...] [--data JSON|@file|-] [--header 'Name: value'] [--all]
 
 Environment:
