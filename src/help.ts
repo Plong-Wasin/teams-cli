@@ -12,6 +12,7 @@ Commands:
   auth login | check | logout
   config show
   me
+  search <query> [--size N] [--json]
   api <GET|POST|PUT|PATCH|DELETE> <path> [key=value ...] [--data JSON|@file|-] [--header 'Name: value'] [--all]
 
 Environment:

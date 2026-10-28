@@ -3,6 +3,7 @@ import { VERSION } from './utils/version.js';
 import { runAuth, selectedContext, type Options } from './commands/auth-commands.js';
 import { runConfig } from './commands/config-commands.js';
 import { runApi } from './commands/api-commands.js';
+import { runSearch } from './commands/search-commands.js';
 import { graphRequest } from './commands/auth-commands.js';
 import { CliError, usage } from './utils/errors.js';
 
@@ -29,6 +30,7 @@ async function main(argv: string[]): Promise<void> {
   if (command === 'auth') return runAuth(ctx, sub);
   if (command === 'config') return runConfig(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'api') return runApi(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
+  if (command === 'search') return runSearch(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'me') {
     if (sub && sub !== '--json') usage("Use 'teams me [--json]'.");
     const identity = await graphRequest(ctx, 'GET', '/me') as { displayName?: string; userPrincipalName?: string; mail?: string; id?: string };
