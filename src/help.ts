@@ -20,6 +20,7 @@ Commands:
   channels [team] [--json]
   channel [channel] [--team team] [--json]
   messages [--team team] [--channel channel] [--top N] [--cursor token] [--all] [--full] [--replies] [--json]
+  thread <id|link> [--top N] [--cursor token] [--full] [--json]
   search <query> [--size N] [--json]
   send <text> [--body @file|-] [--subject text] [--mention upn] [--html] [--dry-run]
   api <GET|POST|PUT|PATCH|DELETE> <path> [key=value ...] [--data JSON|@file|-] [--header 'Name: value'] [--all]
