@@ -1,5 +1,5 @@
 import { graphRequest, type Context } from './auth-commands.js';
-import { usage } from '../utils/errors.js';
+import { CliError, usage } from '../utils/errors.js';
 
 interface Message {
   id?: string;
@@ -9,7 +9,7 @@ interface Message {
   body?: { content?: string };
 }
 interface Collection<T> { value?: T[]; '@odata.nextLink'?: string }
-interface ThreadLink { teamId: string; channelId: string; messageId: string }
+interface ThreadLink { teamId: string; channelId: string; messageId: string; parentId?: string }
 
 const DEFAULT_TOP = 20;
 const ID = /^[A-Za-z0-9._~=-]{1,512}$/;
@@ -27,7 +27,9 @@ function parseLink(value: string): ThreadLink | undefined {
   const groupIds = url.searchParams.getAll('groupId');
   const teamId = groupIds.length === 1 ? groupIds[0]! : '';
   if (!validId(teamId) || !validId(channelId) || !validId(messageId)) return undefined;
-  return { teamId, channelId, messageId };
+  const parents = url.searchParams.getAll('parentMessageId');
+  if (parents.length > 1 || (parents[0] !== undefined && !validId(parents[0]))) return undefined;
+  return { teamId, channelId, messageId, ...(parents[0] && parents[0] !== messageId ? { parentId: parents[0] } : {}) };
 }
 
 function messageId(value: string): string {
@@ -101,11 +103,17 @@ export async function runThread(ctx: Context, args: string[]): Promise<void> {
   if (!Number.isSafeInteger(top) || top < 1 || top > 1000) usage("Option '--top' must be an integer from 1 to 1000.");
   const cursor = option(args, '--cursor');
   const base = `/teams/${encodeURIComponent(teamValue)}/channels/${encodeURIComponent(channelValue)}/messages`;
-  const selected = await graphRequest(ctx, 'GET', `${base}/${encodeURIComponent(id)}`) as Message;
-  const rootId = selected.replyToId || selected.id || id;
-  const root = rootId === id && !selected.replyToId
-    ? selected
-    : await graphRequest(ctx, 'GET', `${base}/${encodeURIComponent(rootId)}`) as Message;
+  // Graph cannot fetch a Reply by its own id, so the Thread is read from its Root Message id: the id given,
+  // or the parentMessageId carried by a pasted Reply link.
+  const rootId = link?.parentId ?? id;
+  let root: Message;
+  try { root = await graphRequest(ctx, 'GET', `${base}/${encodeURIComponent(rootId)}`) as Message; }
+  catch (error) {
+    if (error instanceof CliError && /Not found: GET /.test(error.message)) {
+      usage('The id is not a Root Message in this Channel. A Reply id cannot be read on its own: pass its Root Message id, or paste a Reply link that carries parentMessageId.');
+    }
+    throw error;
+  }
 
   let repliesUrl: string;
   if (cursor) {

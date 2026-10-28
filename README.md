@@ -55,6 +55,8 @@ For one-off selection, pass `--team` and `--channel`. Settings take precedence i
 
 Read commands are safe to use for inspection. `send`, `reply`, and `edit` write Channel Messages; use them only when the user explicitly instructs you to post, reply, or edit. Each supports `--dry-run` to print the payload without sending it. There is no delete command and Chat writing is not supported.
 
+Microsoft Graph cannot fetch a Reply by its own id, so `thread`, `reply`, and `edit` take the Root Message id; a Reply is addressed with `--root` or a link with `parentMessageId`.
+
 | Command | Purpose |
 | --- | --- |
 | `teams auth login\|check\|logout` | Sign in, verify credentials, or remove them |
@@ -69,8 +71,8 @@ Read commands are safe to use for inspection. `send`, `reply`, and `edit` write 
 | `teams thread <id\|link>` | Show a Root Message and its Replies oldest-first |
 | `teams search <query>` | Search Channel Messages and Chat results |
 | `teams send <text>` | Post a Root Message; supports `--subject`, `--body @file\|-`, `--mention`, `--html`, `--dry-run` |
-| `teams reply <id\|link> <text>` | Reply in a Thread |
-| `teams edit <id\|link> <text>` | Edit a Root Message or Reply |
+| `teams reply <id\|link> <text>` | Reply in a Thread. `<id>` is the Root Message id. |
+| `teams edit <id\|link> <text> [--root <id>]` | Edit a Root Message, keeping its subject. To edit a Reply, also pass its Root Message id with `--root`, or paste the Reply's Teams link, which carries `parentMessageId`. |
 | `teams api <METHOD> <path>` | Send a raw Graph request with optional query pairs, `--data`, `--header`, and `--all` |
 
 Add `--json` to list and detail commands for the Graph response. `messages` prints a `more available` cursor hint to stderr when another page exists; pass its cursor back with `--cursor` or use `--all`. Message ids can be supplied as ids or pasted Teams message links. Plain text in write commands is HTML-escaped and line breaks are preserved; use `--html` to send raw HTML. Message bodies can also come from a file (`--body @path`) or stdin (`--body -`). Repeat `--mention user@example.com` to mention people.

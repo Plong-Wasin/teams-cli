@@ -31,7 +31,7 @@ teams config set team <name|id>
 teams config set channel <name|id>
 ```
 
-Add `--json` to supported read commands for raw Graph output. Names resolve to ids; if the CLI reports multiple candidates, choose using the user's stated target rather than guessing. Message links can be used with `thread`, `reply`, and `edit`. Search may return Chat results; treat these as read-only search results.
+Add `--json` to supported read commands for raw Graph output. Names resolve to ids; if the CLI reports multiple candidates, choose using the user's stated target rather than guessing. Message links can be used with `thread`, `reply`, and `edit`. Graph cannot fetch a Reply by its own id: pass the Root Message id to `thread`/`reply`, and to edit a Reply pass its Root Message id with `--root` (or use the Reply's link, which carries `parentMessageId`). Search may return Chat results; treat these as read-only search results.
 
 Write commands are `send`, `reply`, and `edit`. They support `--dry-run`; `send` also accepts `--subject`, while the write commands accept `--body @file|-`, repeatable `--mention`, and `--html`.
 

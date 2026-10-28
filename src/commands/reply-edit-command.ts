@@ -4,13 +4,13 @@ import { resolveChannel, resolveTeam } from './team-commands.js';
 import { CliError, usage } from '../utils/errors.js';
 
 interface User { id?: string; displayName?: string }
-interface Message { id?: string; replyToId?: string | null }
+interface Message { id?: string; subject?: string | null }
 interface Mention {
   id: number;
   mentionText: string;
   mentioned: { user: { id: string; displayName: string; userIdentityType: 'aadUser' } };
 }
-interface Target { teamId: string; channelId: string; messageId: string }
+interface Target { teamId: string; channelId: string; messageId: string; parentId?: string }
 type Payload = { body: { contentType: 'html'; content: string }; mentions?: Mention[] };
 
 const ID = /^[A-Za-z0-9._~=-]{1,512}$/;
@@ -30,7 +30,9 @@ function parseLink(value: string): Target | undefined {
   const groupIds = url.searchParams.getAll('groupId');
   const teamId = groupIds.length === 1 ? groupIds[0]! : '';
   if (!ID.test(teamId) || !ID.test(channelId) || !ID.test(messageId)) return undefined;
-  return { teamId, channelId, messageId };
+  const parents = url.searchParams.getAll('parentMessageId');
+  if (parents.length > 1 || (parents[0] !== undefined && !ID.test(parents[0]))) return undefined;
+  return { teamId, channelId, messageId, ...(parents[0] && parents[0] !== messageId ? { parentId: parents[0] } : {}) };
 }
 
 function parseId(value: string): string {
@@ -88,10 +90,16 @@ async function payload(ctx: Context, args: string[], allowHtml: boolean): Promis
   return result;
 }
 
-async function resolveTarget(ctx: Context, supplied: string): Promise<{ path: string; rootId: string; selectedId: string }> {
+interface Resolved { path: string; rootId: string; selectedId: string; isReply: boolean; subject?: string }
+
+// Graph cannot fetch a Reply by its own id (GET .../messages/{replyId} returns 404), so a Reply is only
+// addressable together with its Root Message id: `--root`, or `parentMessageId` in a pasted Teams link.
+async function resolveTarget(ctx: Context, supplied: string, rootOption: string | undefined): Promise<Resolved> {
   const link = parseLink(supplied);
   if (/^https?:\/\//i.test(supplied) && !link) usage('Expected a valid Teams Channel Message link; Chat links cannot be written.');
   const selectedId = link?.messageId ?? parseId(supplied);
+  if (rootOption !== undefined && !ID.test(rootOption)) usage("Option '--root' requires a valid Root Message id.");
+  const rootHint = rootOption ?? link?.parentId;
   let teamId: string; let channelId: string;
   if (link) {
     teamId = link.teamId;
@@ -107,29 +115,53 @@ async function resolveTarget(ctx: Context, supplied: string): Promise<{ path: st
     channelId = channel.id ?? '';
   }
   const path = `/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/messages`;
-  let selected: Message;
-  try { selected = await graphRequest(ctx, 'GET', `${path}/${encodeURIComponent(selectedId)}`) as Message; }
+  const isReply = rootHint !== undefined && rootHint !== selectedId;
+  const rootId = isReply ? rootHint! : selectedId;
+  let root: Message;
+  try { root = await graphRequest(ctx, 'GET', `${path}/${encodeURIComponent(rootId)}`) as Message; }
   catch (error) {
-    if (error instanceof CliError && /Not found: GET /.test(error.message)) usage('The id is not a Channel Message (Chat messages cannot be written).');
+    if (error instanceof CliError && /Not found: GET /.test(error.message)) {
+      usage('The id is not a Root Message in this Channel (Chat messages cannot be written). To target a Reply, also pass its Root Message id with --root.');
+    }
     throw error;
   }
-  return { path, rootId: selected.replyToId || selected.id || selectedId, selectedId };
+  return { path, rootId, selectedId, isReply, ...(root.subject ? { subject: root.subject } : {}) };
+}
+
+function takeRoot(args: string[]): { rest: string[]; root: string | undefined } {
+  const rest: string[] = []; let root: string | undefined;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i]!;
+    if (arg === '--root' || arg.startsWith('--root=')) {
+      if (root !== undefined) usage("Option '--root' may only be provided once.");
+      root = arg === '--root' ? args[++i] : arg.slice(7);
+      if (!root) usage("Option '--root' requires a Root Message id.");
+    } else rest.push(arg);
+  }
+  return { rest, root };
 }
 
 export async function runReply(ctx: Context, args: string[]): Promise<void> {
-  if (args.length < 2) usage("Use 'teams reply <id|link> <text> [--body @file|-] [--mention upn] [--html] [--dry-run]'.");
-  const target = await resolveTarget(ctx, args[0]!);
-  const body = await payload(ctx, args.slice(1), true);
-  if (args.includes('--dry-run')) return;
+  const { rest, root } = takeRoot(args);
+  if (rest.length < 2) usage("Use 'teams reply <id|link> <text> [--root <root id>] [--body @file|-] [--mention upn] [--html] [--dry-run]'.");
+  const target = await resolveTarget(ctx, rest[0]!, root);
+  const body = await payload(ctx, rest.slice(1), true);
+  if (rest.includes('--dry-run')) return;
   const result = await graphRequest(ctx, 'POST', `${target.path}/${encodeURIComponent(target.rootId)}/replies`, { body: JSON.stringify(body) });
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
+// Graph clears a Root Message's subject on any PATCH that omits it, so the current subject is re-sent.
 export async function runEdit(ctx: Context, args: string[]): Promise<void> {
-  if (args.length < 2) usage("Use 'teams edit <id|link> <text> [--body @file|-] [--mention upn] [--html] [--dry-run]'.");
-  const target = await resolveTarget(ctx, args[0]!);
-  const body = await payload(ctx, args.slice(1), true);
-  if (args.includes('--dry-run')) return;
-  const result = await graphRequest(ctx, 'PATCH', `${target.path}/${encodeURIComponent(target.selectedId)}`, { body: JSON.stringify(body) });
+  const { rest, root } = takeRoot(args);
+  if (rest.length < 2) usage("Use 'teams edit <id|link> <text> [--root <root id>] [--body @file|-] [--mention upn] [--html] [--dry-run]'.");
+  const target = await resolveTarget(ctx, rest[0]!, root);
+  const body = await payload(ctx, rest.slice(1), true);
+  if (rest.includes('--dry-run')) return;
+  const endpoint = target.isReply
+    ? `${target.path}/${encodeURIComponent(target.rootId)}/replies/${encodeURIComponent(target.selectedId)}`
+    : `${target.path}/${encodeURIComponent(target.selectedId)}`;
+  const patch = target.isReply || !target.subject ? body : { subject: target.subject, ...body };
+  const result = await graphRequest(ctx, 'PATCH', endpoint, { body: JSON.stringify(patch) });
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }

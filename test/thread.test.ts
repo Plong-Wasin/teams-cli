@@ -17,9 +17,8 @@ before(async () => {
   cli = createCli({ TEAMS_GRAPH_URL: servers.graph.url, TEAMS_TOKEN: 'test-token' });
   servers.graph.setReply((request, response) => {
     const url = new URL(request.path, 'http://graph.test');
-    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.setHeader('Content-Type', 'application/json');
     if (url.pathname === `${rootPath}/message-1`) { response.end(JSON.stringify(rootMessage)); return; }
-    if (url.pathname === `${rootPath}/reply-new`) { response.end(JSON.stringify({ ...replies[1], replyToId: 'message-1' })); return; }
     if (url.pathname === `${rootPath}/message-1/replies`) {
       const older = url.searchParams.has('$skiptoken');
       const top = Number(url.searchParams.get('$top') ?? 20);
@@ -44,13 +43,12 @@ it('reads a Root Message from a Teams link without Team or Channel defaults', as
   assert.match(result.stderr, /more available: --cursor/);
 });
 
-it('resolves a Reply id to its Root Message and pages back to older Replies', async () => {
+it('pages back to older Replies from a Root Message id', async () => {
   servers.graph.reset();
-  const first = await cli.run(['--team', 'team-1', '--channel', 'chan-1', 'thread', 'reply-new', '--top', '1']);
+  const first = await cli.run(['--team', 'team-1', '--channel', 'chan-1', 'thread', 'message-1', '--top', '1']);
   assert.equal(first.code, 0, first.stderr);
   assert.match(first.stdout, /Root text[\s\S]*reply-new/);
   assert.deepEqual(servers.graph.requests.map((request) => request.path), [
-    `${rootPath}/reply-new`,
     `${rootPath}/message-1`,
     `${rootPath}/message-1/replies?$top=1&$orderby=createdDateTime%20desc`,
   ]);
@@ -64,6 +62,25 @@ it('resolves a Reply id to its Root Message and pages back to older Replies', as
   assert.doesNotMatch(older.stdout, /reply-new/);
   assert.equal(servers.graph.requests.at(-1)?.path, `${rootPath}/message-1/replies?$skiptoken=older`);
   assert.equal(older.stderr, '');
+});
+
+it('reads the Thread of a Reply link through its parentMessageId', async () => {
+  servers.graph.reset();
+  const link = 'https://teams.microsoft.com/l/message/chan-1/reply-new?tenantId=tenant-1&groupId=team-1&parentMessageId=message-1';
+  const result = await cli.run(['thread', link]);
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(servers.graph.requests.map((request) => request.path), [
+    `${rootPath}/message-1`,
+    `${rootPath}/message-1/replies?$top=20&$orderby=createdDateTime%20desc`,
+  ]);
+});
+
+it('explains that a bare Reply id cannot be read on its own', async () => {
+  servers.graph.reset();
+  const result = await cli.run(['--team', 'team-1', '--channel', 'chan-1', 'thread', 'reply-new']);
+  assert.equal(result.code, 2);
+  assert.match(result.stderr, /Root Message id/);
+  assert.deepEqual(servers.graph.requests.map((request) => request.path), [`${rootPath}/reply-new`]);
 });
 
 it('rejects malformed ids and look-alike Teams links without a Graph request', async () => {
