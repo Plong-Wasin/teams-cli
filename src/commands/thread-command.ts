@@ -31,14 +31,13 @@ function option(args: string[], name: string): string | undefined {
   return value;
 }
 
-function validateContinuation(link: string, ctx: Context, expectedPath: string): void {
+function validateContinuation(link: string, ctx: Context): void {
   const base = ctx.env.TEAMS_GRAPH_URL || 'https://graph.microsoft.com/v1.0';
   let url: URL;
   try { url = new URL(link, base); } catch { usage('Graph returned an invalid continuation URL.'); }
   const configured = new URL(base);
   const basePath = configured.pathname.replace(/\/$/, '');
-  const expectedUrl = new URL(`${base.replace(/\/$/, '')}${expectedPath}`, base);
-  if (url.origin !== configured.origin || (basePath && url.pathname !== basePath && !url.pathname.startsWith(`${basePath}/`)) || url.pathname !== expectedUrl.pathname) {
+  if (url.origin !== configured.origin || (basePath && url.pathname !== basePath && !url.pathname.startsWith(`${basePath}/`))) {
     usage('Graph returned a continuation URL outside the configured Graph URL.');
   }
 }
@@ -100,7 +99,7 @@ export async function runThread(ctx: Context, args: string[]): Promise<void> {
   try { root = await graphRequest(ctx, 'GET', `${base}/${encodeURIComponent(rootId)}`) as Message; }
   catch (error) {
     if (error instanceof CliError && /Not found: GET /.test(error.message)) {
-      usage('The id is not a Root Message in this Channel. A Reply id cannot be read on its own: pass its Root Message id, or paste a Reply link that carries parentMessageId.');
+      usage('Not found: the id is not a Root Message in this Channel, the Team or Channel is wrong, or the message was deleted. A Reply id cannot be read on its own: pass its Root Message id, or paste a Reply link that carries parentMessageId.');
     }
     throw error;
   }
@@ -109,7 +108,7 @@ export async function runThread(ctx: Context, args: string[]): Promise<void> {
   if (cursor) {
     if (!/^[A-Za-z0-9_-]+$/.test(cursor)) usage('Invalid cursor. Copy the cursor from the previous command output.');
     const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
-    validateContinuation(decoded, ctx, `${base}/${encodeURIComponent(rootId)}/replies`);
+    validateContinuation(decoded, ctx);
     repliesUrl = decoded!;
   } else {
     repliesUrl = `${base}/${encodeURIComponent(rootId)}/replies?$top=${top}`;

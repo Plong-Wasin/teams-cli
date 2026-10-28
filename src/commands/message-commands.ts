@@ -54,7 +54,7 @@ function truncate(value: string, max = BODY_WIDTH): string {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
-function validateContinuation(link: string, ctx: Context, expectedPath?: string): void {
+function validateContinuation(link: string, ctx: Context): void {
   const base = ctx.env.TEAMS_GRAPH_URL || 'https://graph.microsoft.com/v1.0';
   let url: URL;
   try { url = new URL(link, base); }
@@ -62,15 +62,14 @@ function validateContinuation(link: string, ctx: Context, expectedPath?: string)
   const configured = new URL(base);
   const basePath = configured.pathname.replace(/\/$/, '');
   const inBasePath = !basePath || url.pathname === basePath || url.pathname.startsWith(`${basePath}/`);
-  const onExpectedPath = !expectedPath || url.pathname === `${basePath}${expectedPath}`;
-  if (url.origin !== configured.origin || !inBasePath || !onExpectedPath) usage('Graph returned a continuation URL outside the configured Graph URL.');
+  if (url.origin !== configured.origin || !inBasePath) usage('Graph returned a continuation URL outside the configured Graph URL.');
 }
 
-function cursorUrl(token: string, ctx: Context, expectedPath: string): string {
+function cursorUrl(token: string, ctx: Context): string {
   let link: string;
   try { link = Buffer.from(token, 'base64url').toString('utf8'); }
   catch { usage('Invalid cursor. Copy the cursor from the previous command output.'); }
-  validateContinuation(link, ctx, expectedPath);
+  validateContinuation(link, ctx);
   return link;
 }
 
@@ -110,7 +109,7 @@ export async function runMessages(ctx: Context, args: string[]): Promise<void> {
   const path = `/teams/${encodeURIComponent(team.id!)}/channels/${encodeURIComponent(channel.id!)}/messages`;
   const top = parseTop(args);
   const cursor = option(args, '--cursor');
-  let url = cursor ? cursorUrl(cursor, ctx, path) : `${path}?$top=${top}`;
+  let url = cursor ? cursorUrl(cursor, ctx) : `${path}?$top=${top}`;
   const all = args.includes('--all');
   const pages: Collection<Message>[] = [];
   let nextLink: string | undefined;
@@ -119,7 +118,7 @@ export async function runMessages(ctx: Context, args: string[]): Promise<void> {
     pages.push(result);
     nextLink = result['@odata.nextLink'];
     if (!all || !nextLink) break;
-    validateContinuation(nextLink, ctx, path);
+    validateContinuation(nextLink, ctx);
     url = nextLink;
   }
   const first = pages[0] ?? { value: [] };

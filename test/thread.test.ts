@@ -100,6 +100,12 @@ it('reads a Thread from a link with a real-shaped channel id', async () => {
   assert.equal(servers.graph.requests[0]?.path, '/teams/team-1/channels/19%3Aabc123%40thread.tacv2/messages/message-1');
 });
 
+it('accepts links on the teams.cloud.microsoft host', async () => {
+  servers.graph.reset();
+  const result = await cli.run(['thread', 'https://teams.cloud.microsoft/l/message/chan-1/message-1?tenantId=tenant-1&groupId=team-1']);
+  assert.equal(result.code, 0, result.stderr);
+});
+
 it('rejects malformed ids and look-alike Teams links without a Graph request', async () => {
   for (const value of ['bad/id', 'https://teams.microsoft.com.evil.test/l/message/chan-1/message-1?groupId=team-1', 'https://teams.microsoft.com/l/message/chan-1/message-1/extra?groupId=team-1']) {
     servers.graph.reset();

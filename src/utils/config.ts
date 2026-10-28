@@ -15,7 +15,7 @@ export function loadConfig(path: string): Config {
     return value.profiles && typeof value.profiles === 'object' ? { defaultProfile: value.defaultProfile, profiles: value.profiles } : { profiles: {} };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { profiles: {} };
-    throw new CliError(`Cannot read config file ${path}: ${(error as Error).message}`);
+    throw new CliError(`Cannot read config file ${path}. Check that it is valid JSON, or remove it and sign in again.`);
   }
 }
 export function saveConfig(path: string, config: Config): void {

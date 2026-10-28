@@ -110,3 +110,11 @@ it('rejects --top above the Graph page limit of 50', async () => {
   assert.match(result.stderr, /1 to 50/);
   assert.equal(servers.graph.requests.some((request) => request.path.includes('/messages')), false);
 });
+
+it('accepts a continuation link in OData key form on the configured Graph host', async () => {
+  servers.graph.reset();
+  const cursor = Buffer.from(`${servers.graph.url}/teams('team-1')/channels('chan-1')/messages?$skiptoken=1`).toString('base64url');
+  const result = await cli.run(['--team', 'team-1', '--channel', 'chan-1', 'messages', '--cursor', cursor]);
+  assert.notEqual(result.code, 2, result.stderr);
+  assert.equal(servers.graph.requests.at(-1)?.path, "/teams('team-1')/channels('chan-1')/messages?$skiptoken=1");
+});

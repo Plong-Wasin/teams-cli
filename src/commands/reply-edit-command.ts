@@ -50,7 +50,7 @@ async function payload(ctx: Context, args: string[], allowHtml: boolean): Promis
       mentions.push(value);
       continue;
     }
-    if (arg.startsWith('-') && arg !== '-') usage(`Unknown message option: ${arg}.`);
+    if (arg.startsWith('-') && arg !== '-') usage(`Unknown message option: ${arg}. To post text that starts with '-', pass it with --body.`);
     positional.push(arg);
   }
   if (bodyOption !== undefined && positional.length) usage("Provide the message body as an argument or with '--body', not both.");
@@ -104,7 +104,7 @@ async function resolveTarget(ctx: Context, supplied: string, rootOption: string 
   try { root = await graphRequest(ctx, 'GET', `${path}/${encodeURIComponent(rootId)}`) as Message; }
   catch (error) {
     if (error instanceof CliError && /Not found: GET /.test(error.message)) {
-      usage('The id is not a Root Message in this Channel (Chat messages cannot be written). To target a Reply, also pass its Root Message id with --root.');
+      usage('Not found: the id is not a Root Message in this Channel (Chat messages cannot be written), the Team or Channel is wrong, or the message was deleted. To target a Reply, also pass its Root Message id with --root.');
     }
     throw error;
   }

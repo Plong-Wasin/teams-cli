@@ -45,7 +45,7 @@ export async function runSend(ctx: Context, args: string[]): Promise<void> {
       mentions.push(value);
       continue;
     }
-    if (arg.startsWith('-') && arg !== '-') usage(`Unknown send option: ${arg}.`);
+    if (arg.startsWith('-') && arg !== '-') usage(`Unknown send option: ${arg}. To post text that starts with '-', pass it with --body.`);
     positional.push(arg);
   }
   if (bodyOption !== undefined && positional.length) usage("Provide the message body as an argument or with '--body', not both.");
