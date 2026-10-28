@@ -53,7 +53,7 @@ For one-off selection, pass `--team` and `--channel`. Settings take precedence i
 
 ## Commands
 
-Read commands are safe to use for inspection. `send`, `reply`, and `edit` write Channel Messages; use them only when the user explicitly instructs you to post, reply, or edit. Each supports `--dry-run` to print the payload without sending it. There is no delete command and Chat writing is not supported.
+Read commands are safe to use for inspection. `send`, `reply`, and `edit` write Channel Messages; use them only when the user explicitly instructs you to post, reply, or edit. Each supports `--dry-run` to print the payload without sending it. There is no delete command and no command writes to a Chat. The raw `teams api` command sends whatever request you give it, so the token scopes (no `Chat.ReadWrite`) are what stop a Chat write there.
 
 Microsoft Graph cannot fetch a Reply by its own id, so `thread`, `reply`, and `edit` take the Root Message id; a Reply is addressed with `--root` or a link with `parentMessageId`.
 
