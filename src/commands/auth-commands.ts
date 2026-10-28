@@ -3,7 +3,7 @@ import { configPath, loadConfig, saveConfig, type Config, type Profile } from '.
 
 const DEFAULT_CLIENT_ID = '14d82eec-204b-4c2f-b7e8-296a70dab67e';
 const SCOPES = 'User.Read Team.ReadBasic.All Channel.ReadBasic.All ChannelMessage.Read.All ChannelMessage.Send ChannelMessage.ReadWrite Chat.Read offline_access';
-export interface Options { profile?: string; clientId?: string }
+export interface Options { profile?: string; clientId?: string; team?: string; channel?: string }
 export interface Context { env: NodeJS.ProcessEnv; options: Options; config: Config; path: string; profileName: string; profile: Profile }
 export function selectedContext(env: NodeJS.ProcessEnv, options: Options): Context {
   const path = configPath(env); const config = loadConfig(path);

@@ -5,17 +5,23 @@ import { runConfig } from './commands/config-commands.js';
 import { runApi } from './commands/api-commands.js';
 import { graphRequest } from './commands/auth-commands.js';
 import { CliError, usage } from './utils/errors.js';
+import { runTeamsCommand } from './commands/team-commands.js';
 
 function globals(argv: string[]): { options: Options; args: string[] } {
   const options: Options = {}; const args: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]!;
-    if (arg === '-p' || arg === '--profile' || arg === '--client-id') {
+    if (arg === '-p' || arg === '--profile' || arg === '--client-id' || arg === '--team' || arg === '--channel') {
       const value = argv[i + 1]; if (!value || value.startsWith('-')) usage(`Option '${arg}' requires a value.`);
-      if (arg === '--client-id') options.clientId = value; else options.profile = value;
+      if (arg === '--client-id') options.clientId = value;
+      else if (arg === '--team') options.team = value;
+      else if (arg === '--channel') options.channel = value;
+      else options.profile = value;
       i += 1;
     } else if (arg.startsWith('--profile=')) options.profile = arg.slice(10);
     else if (arg.startsWith('--client-id=')) options.clientId = arg.slice(12);
+    else if (arg.startsWith('--team=')) options.team = arg.slice(7);
+    else if (arg.startsWith('--channel=')) options.channel = arg.slice(10);
     else args.push(arg);
   }
   return { options, args };
@@ -29,6 +35,7 @@ async function main(argv: string[]): Promise<void> {
   if (command === 'auth') return runAuth(ctx, sub);
   if (command === 'config') return runConfig(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'api') return runApi(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
+  if (command === 'teams' || command === 'channels' || command === 'channel') return runTeamsCommand(ctx, command, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'me') {
     if (sub && sub !== '--json') usage("Use 'teams me [--json]'.");
     const identity = await graphRequest(ctx, 'GET', '/me') as { displayName?: string; userPrincipalName?: string; mail?: string; id?: string };
