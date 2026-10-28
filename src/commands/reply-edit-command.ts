@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { graphRequest, type Context } from './auth-commands.js';
 import { resolveChannel, resolveTeam } from './team-commands.js';
 import { CliError, usage } from '../utils/errors.js';
+import { ID, parseLink } from '../utils/links.js';
 
 interface User { id?: string; displayName?: string }
 interface Message { id?: string; subject?: string | null }
@@ -10,29 +11,11 @@ interface Mention {
   mentionText: string;
   mentioned: { user: { id: string; displayName: string; userIdentityType: 'aadUser' } };
 }
-interface Target { teamId: string; channelId: string; messageId: string; parentId?: string }
 type Payload = { body: { contentType: 'html'; content: string }; mentions?: Mention[] };
 
-const ID = /^[A-Za-z0-9._~=-]{1,512}$/;
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\r\n|\r|\n/g, '<br>');
-}
-
-function parseLink(value: string): Target | undefined {
-  let url: URL;
-  try { url = new URL(value); } catch { return undefined; }
-  if (url.protocol !== 'https:' || url.hostname !== 'teams.microsoft.com' || url.port || url.username || url.password || url.hash) return undefined;
-  const match = /^\/l\/message\/([^/]+)\/([^/]+)$/.exec(url.pathname);
-  if (!match) return undefined;
-  let channelId: string; let messageId: string;
-  try { channelId = decodeURIComponent(match[1]!); messageId = decodeURIComponent(match[2]!); } catch { return undefined; }
-  const groupIds = url.searchParams.getAll('groupId');
-  const teamId = groupIds.length === 1 ? groupIds[0]! : '';
-  if (!ID.test(teamId) || !ID.test(channelId) || !ID.test(messageId)) return undefined;
-  const parents = url.searchParams.getAll('parentMessageId');
-  if (parents.length > 1 || (parents[0] !== undefined && !ID.test(parents[0]))) return undefined;
-  return { teamId, channelId, messageId, ...(parents[0] && parents[0] !== messageId ? { parentId: parents[0] } : {}) };
 }
 
 function parseId(value: string): string {
@@ -163,5 +146,5 @@ export async function runEdit(ctx: Context, args: string[]): Promise<void> {
     : `${target.path}/${encodeURIComponent(target.selectedId)}`;
   const patch = target.isReply || !target.subject ? body : { subject: target.subject, ...body };
   const result = await graphRequest(ctx, 'PATCH', endpoint, { body: JSON.stringify(patch) });
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  process.stdout.write(result === undefined ? 'Edited.\n' : `${JSON.stringify(result)}\n`);
 }

@@ -123,3 +123,18 @@ it('posts a Reply under a Root Message, also when given a Reply id with --root',
     { method: 'POST', path: `${rootPath}/root-1/replies`, body: JSON.stringify({ body: { contentType: 'html', content: 'Thanks &lt;team&gt;' } }) },
   ]);
 });
+
+// Last: it replaces the shared fake handler.
+it('prints a confirmation when Graph answers the edit with 204 No Content', async () => {
+  servers.graph.reset();
+  servers.graph.setReply((request, response) => {
+    const url = new URL(request.path, 'http://graph.test');
+    if (url.pathname === '/me/joinedTeams') response.setHeader('Content-Type', 'application/json').end(JSON.stringify({ value: [{ id: 'team-1', displayName: 'Engineering' }] }));
+    else if (url.pathname === '/teams/team-1/channels') response.setHeader('Content-Type', 'application/json').end(JSON.stringify({ value: [{ id: 'chan-1', displayName: 'General' }] }));
+    else if (request.method === 'PATCH') response.writeHead(204).end();
+    else response.setHeader('Content-Type', 'application/json').end(JSON.stringify({ id: 'root-1' }));
+  });
+  const result = await cli.run(['edit', 'root-1', 'Fixed', '--team', 'team-1', '--channel', 'chan-1']);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.stdout, 'Edited.\n');
+});

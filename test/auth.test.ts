@@ -31,6 +31,7 @@ it('logs in with device code, User.Read baseline scope, and saves mode 600 crede
   assert.equal(deviceBody.get('client_id'), 'test-client');
   assert.match(deviceBody.get('scope') ?? '', /User\.Read/);
   assert.match(deviceBody.get('scope') ?? '', /offline_access/);
+  assert.match(deviceBody.get('scope') ?? '', /User\.ReadBasic\.All/);
   const saved = JSON.parse(readFileSync(`${cli.home}/config.json`, 'utf8'));
   assert.equal(saved.profiles.default.refreshToken, 'refresh-secret');
   assert.equal(statSync(`${cli.home}/config.json`).mode & 0o777, 0o600);

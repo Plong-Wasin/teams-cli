@@ -2,8 +2,10 @@ import { graphRequest, type Context } from './auth-commands.js';
 import { usage } from '../utils/errors.js';
 
 interface SearchHit {
+  summary?: string;
   resource?: {
     id?: string;
+    replyToId?: string | null;
     channelIdentity?: { teamId?: string; channelId?: string };
     from?: { user?: { displayName?: string } };
     createdDateTime?: string;
@@ -38,13 +40,14 @@ export async function runSearch(ctx: Context, args: string[]): Promise<void> {
     return;
   }
   const hits = searchHits(result);
-  const rows = hits.map(({ resource = {} }) => {
+  const rows = hits.map((hit) => {
+    const resource = hit.resource ?? {};
     const teamId = resource.channelIdentity?.teamId;
     const channelId = resource.channelIdentity?.channelId;
     const kind = teamId && channelId ? 'Channel' : 'Chat';
-    return [kind, teamId ?? '-', channelId ?? '-', resource.id ?? '-', resource.from?.user?.displayName ?? '-', resource.createdDateTime ?? '-', plainText(resource.body?.content ?? '')];
+    return [kind, teamId ?? '-', channelId ?? '-', resource.id ?? '-', resource.replyToId ?? '-', resource.from?.user?.displayName ?? '-', resource.createdDateTime ?? '-', plainText(resource.body?.content ?? hit.summary ?? '')];
   });
-  process.stdout.write(`TYPE  TEAM  CHANNEL  MESSAGE  SENDER  TIME  BODY\n`);
+  process.stdout.write(`TYPE  TEAM  CHANNEL  MESSAGE  ROOT  SENDER  TIME  BODY\n`);
   for (const row of rows) process.stdout.write(`${row.map((value) => value.replaceAll('\n', ' ').slice(0, 80)).join('  ')}\n`);
 }
 

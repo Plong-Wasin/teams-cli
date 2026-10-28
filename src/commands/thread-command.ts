@@ -1,5 +1,7 @@
 import { graphRequest, type Context } from './auth-commands.js';
 import { CliError, usage } from '../utils/errors.js';
+import { ID, parseLink } from '../utils/links.js';
+import { resolveChannel, resolveTeam } from './team-commands.js';
 
 interface Message {
   id?: string;
@@ -9,28 +11,10 @@ interface Message {
   body?: { content?: string };
 }
 interface Collection<T> { value?: T[]; '@odata.nextLink'?: string }
-interface ThreadLink { teamId: string; channelId: string; messageId: string; parentId?: string }
 
 const DEFAULT_TOP = 20;
-const ID = /^[A-Za-z0-9._~=-]{1,512}$/;
 
 function validId(value: string): boolean { return ID.test(value); }
-
-function parseLink(value: string): ThreadLink | undefined {
-  let url: URL;
-  try { url = new URL(value); } catch { return undefined; }
-  if (url.protocol !== 'https:' || url.hostname !== 'teams.microsoft.com' || url.port || url.username || url.password || url.hash) return undefined;
-  const match = /^\/l\/message\/([^/]+)\/([^/]+)$/.exec(url.pathname);
-  if (!match) return undefined;
-  let channelId: string; let messageId: string;
-  try { channelId = decodeURIComponent(match[1]!); messageId = decodeURIComponent(match[2]!); } catch { return undefined; }
-  const groupIds = url.searchParams.getAll('groupId');
-  const teamId = groupIds.length === 1 ? groupIds[0]! : '';
-  if (!validId(teamId) || !validId(channelId) || !validId(messageId)) return undefined;
-  const parents = url.searchParams.getAll('parentMessageId');
-  if (parents.length > 1 || (parents[0] !== undefined && !validId(parents[0]))) return undefined;
-  return { teamId, channelId, messageId, ...(parents[0] && parents[0] !== messageId ? { parentId: parents[0] } : {}) };
-}
 
 function messageId(value: string): string {
   const link = parseLink(value);
@@ -93,14 +77,20 @@ export async function runThread(ctx: Context, args: string[]): Promise<void> {
   const link = parseLink(supplied);
   if (/^https?:\/\//i.test(supplied) && !link) usage('Expected a valid Teams message link.');
   const id = link?.messageId ?? messageId(supplied);
-  const teamValue = link?.teamId || ctx.options.team || ctx.env.TEAMS_TEAM || ctx.profile.defaultTeam;
-  const channelValue = link?.channelId || ctx.options.channel || ctx.env.TEAMS_CHANNEL || ctx.profile.defaultChannel;
-  if (!teamValue) usage("Set a Team with --team, TEAMS_TEAM, or 'teams config set team'.");
-  if (!channelValue) usage("Set a Channel with --channel, TEAMS_CHANNEL, or 'teams config set channel'.");
+  let teamValue = link?.teamId ?? ''; let channelValue = link?.channelId ?? '';
+  if (!link) {
+    const teamName = ctx.options.team || ctx.env.TEAMS_TEAM || ctx.profile.defaultTeam;
+    const channelName = ctx.options.channel || ctx.env.TEAMS_CHANNEL || ctx.profile.defaultChannel;
+    if (!teamName) usage("Set a Team with --team, TEAMS_TEAM, or 'teams config set team'.");
+    if (!channelName) usage("Set a Channel with --channel, TEAMS_CHANNEL, or 'teams config set channel'.");
+    const team = await resolveTeam(ctx, teamName);
+    teamValue = team.id ?? '';
+    channelValue = (await resolveChannel(ctx, teamValue, channelName)).id ?? '';
+  }
 
   const topValue = option(args, '--top');
   const top = topValue === undefined ? DEFAULT_TOP : Number(topValue);
-  if (!Number.isSafeInteger(top) || top < 1 || top > 1000) usage("Option '--top' must be an integer from 1 to 1000.");
+  if (!Number.isSafeInteger(top) || top < 1 || top > 50) usage("Option '--top' must be an integer from 1 to 50.");
   const cursor = option(args, '--cursor');
   const base = `/teams/${encodeURIComponent(teamValue)}/channels/${encodeURIComponent(channelValue)}/messages`;
   // Graph cannot fetch a Reply by its own id, so the Thread is read from its Root Message id: the id given,
@@ -122,7 +112,7 @@ export async function runThread(ctx: Context, args: string[]): Promise<void> {
     validateContinuation(decoded, ctx, `${base}/${encodeURIComponent(rootId)}/replies`);
     repliesUrl = decoded!;
   } else {
-    repliesUrl = `${base}/${encodeURIComponent(rootId)}/replies?$top=${top}&$orderby=createdDateTime%20desc`;
+    repliesUrl = `${base}/${encodeURIComponent(rootId)}/replies?$top=${top}`;
   }
   const pages: Collection<Message>[] = [];
   let nextLink: string | undefined;

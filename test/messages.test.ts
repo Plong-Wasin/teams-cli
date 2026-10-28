@@ -102,3 +102,11 @@ it('follows @odata.nextLink with --all and retains a cursor after the page cap',
   assert.equal(servers.graph.requests.filter((request) => new URL(request.path, 'http://graph.test').pathname === root).length, 100);
   assert.match(capped.stderr, /more available: --cursor/);
 });
+
+it('rejects --top above the Graph page limit of 50', async () => {
+  servers.graph.reset();
+  const result = await cli.run(['--team', 'team-1', '--channel', 'chan-1', 'messages', '--top', '51']);
+  assert.equal(result.code, 2);
+  assert.match(result.stderr, /1 to 50/);
+  assert.equal(servers.graph.requests.some((request) => request.path.includes('/messages')), false);
+});

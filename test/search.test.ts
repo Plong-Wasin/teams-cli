@@ -15,7 +15,7 @@ it('posts the KQL query intact with the requested size and renders Channel and C
     response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({
       value: [{ hitsContainers: [{ hits: [
         { resource: { id: 'message-1', channelIdentity: { teamId: 'team-1', channelId: 'chan-1' }, from: { user: { displayName: 'Ari' } }, createdDateTime: '2026-10-28T10:00:00Z', body: { content: 'deploy update' } } },
-        { resource: { id: 'message-2', from: { user: { displayName: 'Bea' } }, createdDateTime: '2026-10-28T11:00:00Z', body: { content: 'chat update' } } },
+        { resource: { id: 'message-2', replyToId: 'root-9', from: { user: { displayName: 'Bea' } }, createdDateTime: '2026-10-28T11:00:00Z', body: { content: 'chat update' } } },
       ] }] }], extra: 'preserved',
     }));
   });
@@ -26,6 +26,8 @@ it('posts the KQL query intact with the requested size and renders Channel and C
   assert.equal(request.method, 'POST');
   assert.equal(request.path, '/search/query');
   assert.deepEqual(JSON.parse(request.body), { requests: [{ entityTypes: ['chatMessage'], query: { queryString: query }, from: 0, size: 7, enableTopResults: true }] });
+  assert.match(result.stdout, /ROOT/);
+  assert.match(result.stdout, /root-9/);
   assert.match(result.stdout, /team-1/);
   assert.match(result.stdout, /chan-1/);
   assert.match(result.stdout, /message-1/);
