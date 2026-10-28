@@ -10,6 +10,7 @@ import { runTeamsCommand } from './commands/team-commands.js';
 import { runMessages } from './commands/message-commands.js';
 import { runSend } from './commands/send-command.js';
 import { runThread } from './commands/thread-command.js';
+import { runEdit, runReply } from './commands/reply-edit-command.js';
 
 function globals(argv: string[]): { options: Options; args: string[] } {
   const options: Options = {}; const args: string[] = [];
@@ -43,6 +44,8 @@ async function main(argv: string[]): Promise<void> {
   if (command === 'search') return runSearch(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'messages') return runMessages(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'send') return runSend(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
+  if (command === 'reply') return runReply(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
+  if (command === 'edit') return runEdit(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'thread') return runThread(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'me') {
     if (sub && sub !== '--json') usage("Use 'teams me [--json]'.");
