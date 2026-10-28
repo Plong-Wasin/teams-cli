@@ -1,2 +1,4 @@
 .scratch
 *.local.*
+node_modules/
+dist/

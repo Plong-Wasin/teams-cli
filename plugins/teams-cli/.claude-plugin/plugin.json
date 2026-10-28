@@ -1,0 +1,5 @@
+{
+  "name": "teams-cli",
+  "description": "Read and manage Microsoft Teams Channel Messages with the teams CLI",
+  "license": "MIT"
+}

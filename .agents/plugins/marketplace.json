@@ -1,0 +1,10 @@
+{
+  "name": "teams-cli",
+  "plugins": [
+    {
+      "name": "teams-cli",
+      "source": "./plugins/teams-cli",
+      "description": "Read and manage Microsoft Teams Channel Messages with the teams CLI"
+    }
+  ]
+}
