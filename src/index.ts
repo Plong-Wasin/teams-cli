@@ -8,6 +8,7 @@ import { graphRequest } from './commands/auth-commands.js';
 import { CliError, usage } from './utils/errors.js';
 import { runTeamsCommand } from './commands/team-commands.js';
 import { runMessages } from './commands/message-commands.js';
+import { runSend } from './commands/send-command.js';
 
 function globals(argv: string[]): { options: Options; args: string[] } {
   const options: Options = {}; const args: string[] = [];
@@ -40,6 +41,7 @@ async function main(argv: string[]): Promise<void> {
   if (command === 'teams' || command === 'channels' || command === 'channel') return runTeamsCommand(ctx, command, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'search') return runSearch(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'messages') return runMessages(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
+  if (command === 'send') return runSend(ctx, [sub, ...rest].filter((x): x is string => x !== undefined));
   if (command === 'me') {
     if (sub && sub !== '--json') usage("Use 'teams me [--json]'.");
     const identity = await graphRequest(ctx, 'GET', '/me') as { displayName?: string; userPrincipalName?: string; mail?: string; id?: string };
